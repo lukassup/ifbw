@@ -1,6 +1,9 @@
+#!/usr/bin/env python
+
 import argparse
 import time
 import signal
+from sys import stdout
 
 #
 # Parameter parsing
@@ -28,6 +31,14 @@ argparser.add_argument(
     help='list of interfaces, separated by spaces, defaults to all interfaces'
 )
 argparser.add_argument(
+    '-c',
+    '--color',
+    action='store_const',
+    const='True',
+    dest='colors',
+    help='turn on colors (default off)'
+)
+argparser.add_argument(
     '-d',
     action='store_const',
     const='True',
@@ -37,10 +48,35 @@ argparser.add_argument(
 arguments = argparser.parse_args()
 if arguments.debug: print(arguments)
 
-#
-# Function for gathering data from system counters
-#
+def color(color, text):
+    '''Format text with ASCII color codes.'''
+
+    if arguments.colors:
+        return '\033[' + {
+            'black': '30m',
+            'red': '31m',
+            'green': '32m',
+            'yellow': '33m',
+            'blue': '34m',
+            'magenta': '35m',
+            'cyan': '36m', 
+            'lightgrey': '37m',
+            'darkgrey': '90m',
+            'lightred': '91m',
+            'lightgreen': '92m',
+            'lightyellow': '93m',
+            'lightblue': '94m',
+            'lightmagenta': '95m',
+            'lightcyan': '96m',
+            'white': '39m'
+            }[color] + text + '\033[0m'
+    else:
+        return text
+
+
 def gather_interface_data():
+    '''Function for gathering data from system counters'''
+
     datafile = open("/proc/net/dev","r")
     # Skip the headers
     datafile.readline()
@@ -65,10 +101,8 @@ def gather_interface_data():
     datafile.close()
     return interfaces
 
-#
-# Function for making larger numbers (of data) more human-readable
-#
 def data_human(data):
+    '''Function for making larger numbers (of data) more human-readable'''
     data = float(data)
     order = 0 # of magnitude - index for the array below
     units = ['B', 'kB', 'MB', 'GB']
@@ -90,7 +124,7 @@ def print_rates():
     counters_after = gather_interface_data()
 
     # loop through interfaces that data has been collected about
-    for interface in counters_before:
+    for index, interface in enumerate(counters_before):
         # Calculate differences
         bytes_received   = counters_after[interface]['bytes_received']   - \
                           counters_before[interface]['bytes_received']
@@ -106,21 +140,25 @@ def print_rates():
         bytes_sent_rate       = int( bytes_sent       / float(arguments.interval) )
         packets_sent_rate     = int( packets_sent     / float(arguments.interval) )
         # Print the result
+        
         print(
-            '{:>4s}: Download: {:>5.1f} {:<4s}, Upload: {:>5.1f} {}'.format(
-                interface,
+                '{}\t{}:\t{:>5.1f} {:>4s},\t{}:\t{:>5.1f} {:>4s}'.format(
+                color('lightyellow', interface) + ':',
+                color('red', 'Down'),
                 data_human(bytes_received_rate)['amount'],
                 data_human(bytes_received_rate)['units'] + '/s',
+                color('green', 'Up'),
                 data_human(bytes_sent_rate)['amount'],
                 data_human(bytes_sent_rate)['units'] + '/s'
              )
         )
 
+
 #
 # ctrl+c handler
 #
 def sigint_handler(signum, frame):
-    print
+    print('\r', sep='')
     exit(0)
 
 #
