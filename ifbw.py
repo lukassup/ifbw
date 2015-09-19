@@ -3,18 +3,16 @@
 import argparse
 import time
 import signal
-from sys import stdout
+from os import system
 
-#
 # Parameter parsing
-#
 argparser = argparse.ArgumentParser()
 argparser.add_argument(
     '-n',
     metavar='<iterations>',
     dest='iterations',
     default=-1,
-    help='how many iterations to perform before exiting (defaults to infinite)'
+    help='iterations to perform before exiting (defaults to infinite)'
 )
 argparser.add_argument(
     '-i',
@@ -50,7 +48,6 @@ if arguments.debug: print(arguments)
 
 def color(color, text):
     '''Format text with ASCII color codes.'''
-
     if arguments.colors:
         return '\033[' + {
             'black': '30m',
@@ -76,7 +73,6 @@ def color(color, text):
 
 def gather_interface_data():
     '''Function for gathering data from system counters'''
-
     datafile = open("/proc/net/dev","r")
     # Skip the headers
     datafile.readline()
@@ -102,7 +98,7 @@ def gather_interface_data():
     return interfaces
 
 def data_human(data):
-    '''Function for making larger numbers (of data) more human-readable'''
+    '''Function for making large numbers (of data) more human-readable'''
     data = float(data)
     order = 0 # of magnitude - index for the array below
     units = ['B', 'kB', 'MB', 'GB']
@@ -115,32 +111,32 @@ def data_human(data):
     
     return  { 'amount':data, 'units':units[order] }
 
-#
-# Function that calculates the rates and prints them
-#
 def print_rates():
+    '''Function that calculates the rates and prints them'''
     counters_before = gather_interface_data()
     time.sleep( float(arguments.interval) )
     counters_after = gather_interface_data()
 
     # loop through interfaces that data has been collected about
-    for index, interface in enumerate(counters_before):
+    for interface in counters_before:
+
         # Calculate differences
         bytes_received   = counters_after[interface]['bytes_received']   - \
-                          counters_before[interface]['bytes_received']
+                           counters_before[interface]['bytes_received']
         packets_received = counters_after[interface]['packets_received'] - \
-                          counters_before[interface]['packets_received']
+                           counters_before[interface]['packets_received']
         bytes_sent       = counters_after[interface]['bytes_sent']       - \
-                          counters_before[interface]['bytes_sent']
+                           counters_before[interface]['bytes_sent']
         packets_sent     = counters_after[interface]['packets_sent']     - \
-                          counters_before[interface]['packets_sent']
+                           counters_before[interface]['packets_sent']
+
         # Data rates per second
         bytes_received_rate   = int( bytes_received   / float(arguments.interval) )
         packets_received_rate = int( packets_received / float(arguments.interval) )
         bytes_sent_rate       = int( bytes_sent       / float(arguments.interval) )
         packets_sent_rate     = int( packets_sent     / float(arguments.interval) )
+
         # Print the result
-        
         print(
                 '{}\t{}:\t{:>5.1f} {:>4s},\t{}:\t{:>5.1f} {:>4s}'.format(
                 color('lightyellow', interface) + ':',
@@ -153,22 +149,26 @@ def print_rates():
              )
         )
 
-
-#
-# ctrl+c handler
-#
 def sigint_handler(signum, frame):
+    '''CTRL+C Handler'''
     print('\r', sep='')
     exit(0)
 
-#
-# Main loop
-#
-signal.signal(signal.SIGINT, sigint_handler)
+def main():
+    '''Main loop'''
 
-if (-1) == arguments.iterations:
-    while True:
-        print_rates()
-else:
-    for iteration in range(0, int(arguments.iterations)):
-        print_rates()
+    signal.signal(signal.SIGINT, sigint_handler)
+
+    if (-1) == arguments.iterations:
+        while True:
+            system("stty -echo") # Hide input
+            print_rates()
+    else:
+        for iteration in range(0, int(arguments.iterations)):
+            system("stty -echo") # Hide input
+            print_rates()
+
+    system("stty echo") # Unhide input
+
+main()
+
